@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { City, WeatherData, searchCities, fetchWeather } from '@/lib/api';
 import { getWeatherCondition, WeatherCondition } from '@/lib/weatherCodes';
+import { getByline } from '@/lib/bylineEngine';
 import WeatherIcon from '@/components/WeatherIcon';
 
 // Default to London, the home of "Umbrella Maybe" weather
@@ -33,12 +34,114 @@ export default function Home() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
+  // Saved Cities States
+  const [savedCities, setSavedCities] = useState<City[]>([]);
+  const [savedCitiesWeather, setSavedCitiesWeather] = useState<
+    Record<
+      number,
+      {
+        temp: number;
+        description: string;
+        iconName: string;
+        code: number;
+        time: string;
+        high: number;
+        low: number;
+        byline: string;
+      }
+    >
+  >({});
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Hydration safety
   useEffect(() => {
     setMounted(true);
+    // Load saved cities from localStorage on client side mount
+    const saved = localStorage.getItem('umbrella_maybe_saved_cities');
+    if (saved) {
+      try {
+        setSavedCities(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse saved cities', e);
+      }
+    }
   }, []);
+
+  // Sync saved cities to localStorage
+  const updateSavedCities = (newCities: City[]) => {
+    setSavedCities(newCities);
+    localStorage.setItem('umbrella_maybe_saved_cities', JSON.stringify(newCities));
+  };
+
+  // Asynchronously fetch weather for all saved cities in parallel
+  useEffect(() => {
+    let active = true;
+
+    async function fetchAllSavedWeather() {
+      const weatherMap: typeof savedCitiesWeather = {};
+      
+      await Promise.all(
+        savedCities.map(async (city) => {
+          try {
+            const data = await fetchWeather(city.latitude, city.longitude);
+            const condition = getWeatherCondition(data.current.weather_code);
+            const pop = data.daily.precipitation_probability_max[0];
+            
+            const cityByline = getByline({
+              weatherCode: data.current.weather_code,
+              temp: data.current.temperature_2m,
+              feelsLike: data.current.apparent_temperature,
+              pop: pop,
+              windSpeed: data.current.wind_speed_10m
+            }, 'default');
+
+            weatherMap[city.id] = {
+              temp: data.current.temperature_2m,
+              description: condition.description,
+              iconName: condition.iconName,
+              code: data.current.weather_code,
+              time: data.current.time,
+              high: data.daily.temperature_2m_max[0],
+              low: data.daily.temperature_2m_min[0],
+              byline: cityByline
+            };
+          } catch (err) {
+            console.error(`Failed to fetch weather for saved city: ${city.name}`, err);
+          }
+        })
+      );
+
+      if (active) {
+        setSavedCitiesWeather(weatherMap);
+      }
+    }
+
+    if (savedCities.length > 0) {
+      fetchAllSavedWeather();
+    }
+  }, [savedCities]);
+
+  const handleSaveCity = () => {
+    const isAlreadySaved = savedCities.some(
+      (c) =>
+        c.id === selectedCity.id ||
+        (Math.abs(c.latitude - selectedCity.latitude) < 0.01 &&
+          Math.abs(c.longitude - selectedCity.longitude) < 0.01)
+    );
+
+    if (isAlreadySaved) {
+      const filtered = savedCities.filter(
+        (c) =>
+          c.id !== selectedCity.id &&
+          (Math.abs(c.latitude - selectedCity.latitude) >= 0.01 ||
+            Math.abs(c.longitude - selectedCity.longitude) >= 0.01)
+      );
+      updateSavedCities(filtered);
+    } else {
+      updateSavedCities([...savedCities, selectedCity]);
+    }
+  };
 
   // Close search dropdown on click outside
   useEffect(() => {
@@ -145,6 +248,19 @@ export default function Home() {
     ? getWeatherCondition(weatherData.current.weather_code)
     : getWeatherCondition(0);
 
+  const byline = weatherData
+    ? getByline(
+        {
+          weatherCode: weatherData.current.weather_code,
+          temp: weatherData.current.temperature_2m,
+          feelsLike: weatherData.current.apparent_temperature,
+          pop: weatherData.daily.precipitation_probability_max[0],
+          windSpeed: weatherData.current.wind_speed_10m
+        },
+        'default'
+      )
+    : '';
+
   // Time format helper
   const formatHourString = (isoString: string) => {
     const parts = isoString.split('T');
@@ -155,48 +271,70 @@ export default function Home() {
     return `${hour12} ${ampm}`;
   };
 
-  // Weather-based gradient background logic (incorporating Night vs Day)
-  const getDynamicBackground = () => {
-    if (!weatherData) return 'from-slate-900 via-slate-950 to-black';
-
+  // Weather-based gradient background logic (for pages and cards)
+  const getGradientClasses = (weatherCode: number, timeStr?: string, isCard: boolean = false) => {
     // 1. Check Night state (before 6 AM or after 8 PM)
-    const timeStr = weatherData.current.time;
-    const parts = timeStr.split('T');
-    if (parts.length >= 2) {
-      const hour = parseInt(parts[1].split(':')[0], 10);
-      if (hour < 6 || hour >= 20) {
-        // night = navy
-        return 'from-slate-950 via-slate-900 to-zinc-950';
+    let isNight = false;
+    if (timeStr) {
+      const parts = timeStr.split('T');
+      if (parts.length >= 2) {
+        const hour = parseInt(parts[1].split(':')[0], 10);
+        if (hour < 6 || hour >= 20) {
+          isNight = true;
+        }
       }
     }
 
+    if (isNight) {
+      return isCard
+        ? 'from-slate-950/80 via-slate-900/60 to-indigo-950/40 border-white/5'
+        : 'from-slate-950 via-slate-900 to-zinc-950';
+    }
+
     // 2. Day weather types
-    switch (currentCondition.iconName) {
+    const condition = getWeatherCondition(weatherCode);
+    switch (condition.iconName) {
       case 'sunny':
         // sunny = blue/gold
-        return 'from-sky-500 via-blue-600 to-indigo-950';
+        return isCard
+          ? 'from-sky-500/25 via-blue-600/15 to-indigo-950/40 border-sky-500/20'
+          : 'from-sky-500 via-blue-600 to-indigo-950';
       case 'partly-cloudy':
       case 'cloudy':
         // cloudy = gray/blue
-        return 'from-slate-500 via-slate-700 to-zinc-950';
+        return isCard
+          ? 'from-slate-500/25 via-slate-700/15 to-zinc-950/40 border-slate-500/20'
+          : 'from-slate-500 via-slate-700 to-zinc-950';
       case 'foggy':
-        return 'from-zinc-600 via-slate-700 to-zinc-950';
+        return isCard
+          ? 'from-zinc-600/25 via-slate-700/15 to-zinc-950/40 border-zinc-500/20'
+          : 'from-zinc-600 via-slate-700 to-zinc-950';
       case 'drizzle':
       case 'rainy':
         // rain = dark blue
-        return 'from-blue-900 via-slate-900 to-zinc-950';
+        return isCard
+          ? 'from-blue-900/35 via-slate-900/25 to-zinc-950/40 border-blue-500/20'
+          : 'from-blue-900 via-slate-900 to-zinc-950';
       case 'snowy':
         // snow = pale blue/white
-        return 'from-slate-800 via-slate-900 to-slate-950';
+        return isCard
+          ? 'from-slate-800/25 via-slate-900/15 to-slate-950/40 border-white/10'
+          : 'from-slate-800 via-slate-900 to-slate-950';
       case 'thunderstorm':
         // storm = purple/dark
-        return 'from-purple-950 via-indigo-950/80 to-zinc-950';
+        return isCard
+          ? 'from-purple-950/25 via-indigo-950/20 to-zinc-950/40 border-purple-500/20'
+          : 'from-purple-950 via-indigo-950/80 to-zinc-950';
       default:
-        return 'from-slate-900 via-slate-950 to-black';
+        return isCard
+          ? 'from-slate-900/20 via-slate-950/15 to-black/40 border-white/5'
+          : 'from-slate-900 via-slate-950 to-black';
     }
   };
 
-  const dynamicBgGradient = getDynamicBackground();
+  const dynamicBgGradient = weatherData
+    ? getGradientClasses(weatherData.current.weather_code, weatherData.current.time, false)
+    : 'from-slate-900 via-slate-950 to-black';
 
   // Get Umbrella Recommendation visual details
   const getUmbrellaBadgeStyles = (status: 'yes' | 'maybe' | 'no') => {
@@ -353,6 +491,13 @@ export default function Home() {
               <p className="text-base font-medium text-white/80 mt-1.5">
                 {currentCondition.description}
               </p>
+
+              {/* Funny Byline */}
+              {byline && (
+                <p className="text-xs text-white/70 italic mt-1 max-w-[280px] mx-auto leading-relaxed">
+                  {byline}
+                </p>
+              )}
               
               <div className="flex items-center gap-3 text-sm font-medium text-white/60 mt-1">
                 <span>H:{Math.round(weatherData.daily.temperature_2m_max[0])}°</span>
