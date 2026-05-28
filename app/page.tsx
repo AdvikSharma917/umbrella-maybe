@@ -1,64 +1,564 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { City, WeatherData, searchCities, fetchWeather } from '@/lib/api';
+import { getWeatherCondition, WeatherCondition } from '@/lib/weatherCodes';
+import WeatherIcon from '@/components/WeatherIcon';
+
+// Default to London, the home of "Umbrella Maybe" weather
+const DEFAULT_CITY: City = {
+  id: 2643743,
+  name: 'London',
+  latitude: 51.5074,
+  longitude: -0.1278,
+  country: 'United Kingdom',
+  country_code: 'GB',
+  admin1: 'England',
+  timezone: 'Europe/London'
+};
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+
+  // Search States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<City[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [showResults, setShowResults] = useState(false);
+
+  // Weather States
+  const [selectedCity, setSelectedCity] = useState<City>(DEFAULT_CITY);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Hydration safety
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowResults(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced search logic for Geocoding API
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const results = await searchCities(searchQuery);
+        setSearchResults(results);
+        setShowResults(true);
+      } catch (err) {
+        setSearchError('Could not find cities.');
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Load weather when selectedCity changes
+  useEffect(() => {
+    let active = true;
+
+    async function loadWeather() {
+      setWeatherLoading(true);
+      setWeatherError(null);
+      try {
+        const data = await fetchWeather(selectedCity.latitude, selectedCity.longitude);
+        if (active) {
+          setWeatherData(data);
+        }
+      } catch (err) {
+        if (active) {
+          setWeatherError('Failed to load weather data.');
+        }
+      } finally {
+        if (active) {
+          setWeatherLoading(false);
+        }
+      }
+    }
+
+    loadWeather();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedCity]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin" />
+          <p className="text-xs font-semibold tracking-wider uppercase text-slate-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get index matching current hour to slice the next 16 hours
+  const getHourlyForecast = () => {
+    if (!weatherData) return [];
+    const currentTime = weatherData.current.time;
+    let index = weatherData.hourly.time.findIndex((t) => t >= currentTime);
+    if (index === -1) index = 0;
+
+    const sliced = [];
+    for (let i = index; i < index + 16 && i < weatherData.hourly.time.length; i++) {
+      sliced.push({
+        time: weatherData.hourly.time[i],
+        temp: weatherData.hourly.temperature_2m[i],
+        pop: weatherData.hourly.precipitation_probability[i],
+        code: weatherData.hourly.weather_code[i]
+      });
+    }
+    return sliced;
+  };
+
+  const hourlyForecast = getHourlyForecast();
+  const currentCondition: WeatherCondition = weatherData
+    ? getWeatherCondition(weatherData.current.weather_code)
+    : getWeatherCondition(0);
+
+  // Time format helper
+  const formatHourString = (isoString: string) => {
+    const parts = isoString.split('T');
+    if (parts.length < 2) return isoString;
+    const hourPart = parseInt(parts[1].split(':')[0], 10);
+    const ampm = hourPart >= 12 ? 'PM' : 'AM';
+    const hour12 = hourPart % 12 === 0 ? 12 : hourPart % 12;
+    return `${hour12} ${ampm}`;
+  };
+
+  // Weather-based gradient background logic (incorporating Night vs Day)
+  const getDynamicBackground = () => {
+    if (!weatherData) return 'from-slate-900 via-slate-950 to-black';
+
+    // 1. Check Night state (before 6 AM or after 8 PM)
+    const timeStr = weatherData.current.time;
+    const parts = timeStr.split('T');
+    if (parts.length >= 2) {
+      const hour = parseInt(parts[1].split(':')[0], 10);
+      if (hour < 6 || hour >= 20) {
+        // night = navy
+        return 'from-slate-950 via-slate-900 to-zinc-950';
+      }
+    }
+
+    // 2. Day weather types
+    switch (currentCondition.iconName) {
+      case 'sunny':
+        // sunny = blue/gold
+        return 'from-sky-500 via-blue-600 to-indigo-950';
+      case 'partly-cloudy':
+      case 'cloudy':
+        // cloudy = gray/blue
+        return 'from-slate-500 via-slate-700 to-zinc-950';
+      case 'foggy':
+        return 'from-zinc-600 via-slate-700 to-zinc-950';
+      case 'drizzle':
+      case 'rainy':
+        // rain = dark blue
+        return 'from-blue-900 via-slate-900 to-zinc-950';
+      case 'snowy':
+        // snow = pale blue/white
+        return 'from-slate-800 via-slate-900 to-slate-950';
+      case 'thunderstorm':
+        // storm = purple/dark
+        return 'from-purple-950 via-indigo-950/80 to-zinc-950';
+      default:
+        return 'from-slate-900 via-slate-950 to-black';
+    }
+  };
+
+  const dynamicBgGradient = getDynamicBackground();
+
+  // Get Umbrella Recommendation visual details
+  const getUmbrellaBadgeStyles = (status: 'yes' | 'maybe' | 'no') => {
+    switch (status) {
+      case 'yes':
+        return {
+          text: 'text-rose-400',
+          border: 'border-rose-500/20 bg-rose-500/5',
+          label: 'Umbrella Needed'
+        };
+      case 'maybe':
+        return {
+          text: 'text-amber-400',
+          border: 'border-amber-500/20 bg-amber-500/5',
+          label: 'Umbrella Maybe'
+        };
+      case 'no':
+      default:
+        return {
+          text: 'text-emerald-400',
+          border: 'border-emerald-500/20 bg-emerald-500/5',
+          label: 'No Umbrella Needed'
+        };
+    }
+  };
+
+  const umbrellaBadge = getUmbrellaBadgeStyles(currentCondition.umbrella);
+
+  // Date formatting helpers
+  const formatDayName = (dateString: string, index: number) => {
+    if (index === 0) return 'Today';
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  };
+
+  const formatStatsAdvice = () => {
+    if (!weatherData) return '';
+    const temp = weatherData.current.temperature_2m;
+    const feels = weatherData.current.apparent_temperature;
+    const diff = Math.abs(temp - feels);
+    if (diff > 3) {
+      return feels < temp ? 'Wind makes it feel colder.' : 'Humidity makes it feel warmer.';
+    }
+    return 'Similar to the actual temperature.';
+  };
+
+  const formatWindAdvice = () => {
+    if (!weatherData) return '';
+    const speed = weatherData.current.wind_speed_10m;
+    if (speed < 10) return 'Light, gentle breeze.';
+    if (speed < 25) return 'Moderate breeze blowing.';
+    return 'Strong winds. Hold onto your umbrella!';
+  };
+
+  const formatPrecipAdvice = () => {
+    if (!weatherData) return '';
+    const precip = weatherData.current.precipitation;
+    if (precip === 0) return 'No rain expected currently.';
+    if (precip < 2) return 'Light drizzle falling.';
+    return 'Steady rainfall in progress.';
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className={`min-h-screen bg-gradient-to-b ${dynamicBgGradient} text-white font-sans transition-all duration-1000 pb-16 selection:bg-white/10`}>
+      {/* Search Header Bar (Sticky at Top) */}
+      <header className="sticky top-0 z-50 w-full max-w-lg mx-auto px-4 pt-4 pb-2">
+        <div ref={searchContainerRef} className="relative">
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              {searchLoading ? (
+                <WeatherIcon name="spinner" className="w-4 h-4 animate-spin text-white/50" />
+              ) : (
+                <WeatherIcon name="search" className="w-4 h-4 text-white/50" />
+              )}
+            </span>
+            <input
+              type="text"
+              placeholder="Search for a city or airport"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowResults(true);
+              }}
+              onFocus={() => setShowResults(true)}
+              className="w-full bg-slate-900/40 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-sm text-slate-100 placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-white/20 transition-all backdrop-blur-xl shadow-lg"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          {/* Search Dropdown Results */}
+          {showResults && (searchResults.length > 0 || searchError || (searchQuery.trim().length >= 2 && !searchLoading)) && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-slate-900/85 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-2xl">
+              {searchError && (
+                <div className="p-3 text-xs text-rose-400">{searchError}</div>
+              )}
+              {!searchError && searchResults.length === 0 && (
+                <div className="p-3 text-xs text-white/40">No results found.</div>
+              )}
+              {!searchError && searchResults.length > 0 && (
+                <ul className="divide-y divide-white/5 max-h-60 overflow-y-auto">
+                  {searchResults.map((city) => (
+                    <li key={`${city.id}-${city.latitude}`}>
+                      <button
+                        onClick={() => {
+                          setSelectedCity(city);
+                          setSearchQuery('');
+                          setSearchResults([]);
+                          setShowResults(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <span className="font-semibold text-white">{city.name}</span>
+                          {city.admin1 && (
+                            <span className="text-white/40 text-[10px] ml-1.5">
+                              {city.admin1}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/5 uppercase font-medium">
+                          {city.country_code}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
+      </header>
+
+      {/* Main Core Dashboard Container */}
+      <main className="w-full max-w-lg mx-auto px-4 mt-6 flex flex-col gap-6 relative z-10">
+        
+        {/* Apple Weather Centered Main Display */}
+        {weatherLoading ? (
+          <div className="text-center py-10 animate-pulse">
+            <div className="h-6 w-32 bg-white/10 rounded mx-auto mb-2" />
+            <div className="h-20 w-36 bg-white/10 rounded mx-auto mb-2" />
+            <div className="h-4 w-40 bg-white/10 rounded mx-auto" />
+          </div>
+        ) : (
+          weatherData && (
+            <section className="text-center py-6 select-none flex flex-col items-center">
+              <h2 className="text-3xl font-light text-white tracking-wide">{selectedCity.name}</h2>
+              
+              <div className="flex items-start justify-center mt-1.5 pl-6">
+                <span className="text-[5.5rem] font-thin leading-none tracking-tighter text-white">
+                  {Math.round(weatherData.current.temperature_2m)}
+                </span>
+                <span className="text-3xl font-light text-white/70 mt-1">°</span>
+              </div>
+              
+              <p className="text-base font-medium text-white/80 mt-1.5">
+                {currentCondition.description}
+              </p>
+              
+              <div className="flex items-center gap-3 text-sm font-medium text-white/60 mt-1">
+                <span>H:{Math.round(weatherData.daily.temperature_2m_max[0])}°</span>
+                <span>L:{Math.round(weatherData.daily.temperature_2m_min[0])}°</span>
+              </div>
+
+              {/* Dynamic Sub-header umbrella badge */}
+              <div className={`mt-4 px-3 py-1 rounded-full border text-[11px] font-semibold tracking-wider uppercase ${umbrellaBadge.border} ${umbrellaBadge.text}`}>
+                ☔ {umbrellaBadge.label}
+              </div>
+            </section>
+          )
+        )}
+
+        {weatherError ? (
+          <div className="bg-slate-900/35 border border-white/5 backdrop-blur-md rounded-2xl p-6 text-center shadow-lg">
+            <p className="text-sm text-white/70 mb-3">{weatherError}</p>
+            <button
+              onClick={() => setSelectedCity({ ...selectedCity })}
+              className="bg-white/10 hover:bg-white/20 border border-white/10 text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          weatherData && (
+            <div className="flex flex-col gap-5">
+              
+              {/* UMBRELLA ADVICE CARD */}
+              <section className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-4.5 shadow-md flex gap-3.5 items-start">
+                <div className={`p-2 rounded-xl bg-white/5 border border-white/5 flex-shrink-0 ${umbrellaBadge.text}`}>
+                  <WeatherIcon name="umbrella" className="w-5 h-5 fill-current/10" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-white/50 tracking-wider uppercase">Umbrella Verdict</h3>
+                  <p className="text-sm font-semibold text-white mt-1">
+                    {currentCondition.umbrella === 'yes'
+                      ? 'Definitely grab an umbrella!'
+                      : currentCondition.umbrella === 'maybe'
+                      ? 'Umbrella is recommended (just in case)'
+                      : 'No need for an umbrella today.'}
+                  </p>
+                  <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                    {currentCondition.advice}
+                  </p>
+                </div>
+              </section>
+
+              {/* HOURLY FORECAST CARD */}
+              <section className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-4 shadow-md">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/40 tracking-wider uppercase border-b border-white/5 pb-2 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Hourly Forecast
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-1 pt-1.5 scrollbar-none">
+                  {hourlyForecast.map((hour, idx) => {
+                    const hourCond = getWeatherCondition(hour.code);
+                    return (
+                      <div
+                        key={hour.time}
+                        className="flex-shrink-0 w-11 flex flex-col items-center text-center justify-between gap-2.5 select-none"
+                      >
+                        <span className="text-[10px] font-medium text-white/50">
+                          {idx === 0 ? 'Now' : formatHourString(hour.time).split(' ')[0]}
+                        </span>
+                        
+                        <div className="flex flex-col items-center gap-1 min-h-[40px] justify-center">
+                          <WeatherIcon name={hourCond.iconName} className="w-5 h-5 flex-shrink-0" />
+                          {hour.pop > 0 && (
+                            <span className="text-[8px] font-bold text-sky-400">
+                              {hour.pop}%
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-xs font-semibold text-white">
+                          {Math.round(hour.temp)}°
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* 7-DAY FORECAST CARD */}
+              <section className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-4 shadow-md">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/40 tracking-wider uppercase border-b border-white/5 pb-2 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  7-Day Forecast
+                </div>
+
+                <div className="flex flex-col divide-y divide-white/5">
+                  {weatherData.daily.time.map((day, idx) => {
+                    const dayCond = getWeatherCondition(weatherData.daily.weather_code[idx]);
+                    const minTemp = weatherData.daily.temperature_2m_min[idx];
+                    const maxTemp = weatherData.daily.temperature_2m_max[idx];
+                    const pop = weatherData.daily.precipitation_probability_max[idx];
+                    return (
+                      <div
+                        key={day}
+                        className="flex items-center justify-between py-2.5 first:pt-1 last:pb-1"
+                      >
+                        {/* Day name */}
+                        <span className="text-xs font-semibold text-white w-14">
+                          {formatDayName(day, idx)}
+                        </span>
+
+                        {/* Icon & Pop */}
+                        <div className="flex items-center gap-1.5 w-12 justify-center">
+                          <WeatherIcon name={dayCond.iconName} className="w-4.5 h-4.5" />
+                          {pop > 0 && (
+                            <span className="text-[8px] font-bold text-sky-400">
+                              {pop}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Min / Max Temp range visual track (Apple style) */}
+                        <div className="flex items-center gap-2 text-xs font-semibold w-36 justify-end">
+                          <span className="text-white/40 text-[11px] w-6 text-right">
+                            {Math.round(minTemp)}°
+                          </span>
+                          
+                          {/* Mini slider track */}
+                          <div className="w-16 h-1.5 bg-white/10 rounded-full relative overflow-hidden">
+                            <div
+                              className="absolute h-full bg-gradient-to-r from-sky-400 via-indigo-400 to-amber-400 rounded-full"
+                              style={{ left: '15%', right: '15%' }}
+                            />
+                          </div>
+
+                          <span className="text-white w-6 text-right">
+                            {Math.round(maxTemp)}°
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* STATS DETAIL GRID (Feels-like, Wind, Precipitation) */}
+              <section className="grid grid-cols-3 gap-3">
+                {/* Feels Like Card */}
+                <div className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-3 flex flex-col justify-between h-28 shadow-sm">
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-white/40 tracking-wider uppercase">
+                    <WeatherIcon name="temp" className="w-3 h-3 text-white/40" />
+                    Feels Like
+                  </div>
+                  <div className="my-1.5">
+                    <span className="text-xl font-semibold text-white">
+                      {Math.round(weatherData.current.apparent_temperature)}°
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-white/50 leading-tight">
+                    {formatStatsAdvice()}
+                  </p>
+                </div>
+
+                {/* Wind Card */}
+                <div className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-3 flex flex-col justify-between h-28 shadow-sm">
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-white/40 tracking-wider uppercase">
+                    <WeatherIcon name="wind" className="w-3 h-3 text-white/40" />
+                    Wind
+                  </div>
+                  <div className="my-1.5">
+                    <span className="text-xl font-semibold text-white">
+                      {Math.round(weatherData.current.wind_speed_10m)}
+                    </span>
+                    <span className="text-[10px] text-white/60 ml-0.5">km/h</span>
+                  </div>
+                  <p className="text-[9px] text-white/50 leading-tight">
+                    {formatWindAdvice()}
+                  </p>
+                </div>
+
+                {/* Precipitation Card */}
+                <div className="bg-slate-900/25 border border-white/5 backdrop-blur-md rounded-2xl p-3 flex flex-col justify-between h-28 shadow-sm">
+                  <div className="flex items-center gap-1 text-[9px] font-bold text-white/40 tracking-wider uppercase">
+                    <WeatherIcon name="precipitation" className="w-3 h-3 text-white/40" />
+                    Precipitation
+                  </div>
+                  <div className="my-1.5">
+                    <span className="text-xl font-semibold text-white">
+                      {weatherData.current.precipitation}
+                    </span>
+                    <span className="text-[10px] text-white/60 ml-0.5">mm</span>
+                  </div>
+                  <p className="text-[9px] text-white/50 leading-tight">
+                    {formatPrecipAdvice()}
+                  </p>
+                </div>
+              </section>
+
+            </div>
+          )
+        )}
       </main>
     </div>
   );
