@@ -504,9 +504,24 @@ export default function Home() {
                 <span>L:{Math.round(weatherData.daily.temperature_2m_min[0])}°</span>
               </div>
 
-              {/* Dynamic Sub-header umbrella badge */}
-              <div className={`mt-4 px-3 py-1 rounded-full border text-[11px] font-semibold tracking-wider uppercase ${umbrellaBadge.border} ${umbrellaBadge.text}`}>
-                ☔ {umbrellaBadge.label}
+              {/* Dynamic Sub-header umbrella badge & Save City Toggle */}
+              <div className="flex flex-wrap justify-center items-center gap-2 mt-4">
+                <div className={`px-3 py-1 rounded-full border text-[11px] font-semibold tracking-wider uppercase ${umbrellaBadge.border} ${umbrellaBadge.text}`}>
+                  ☔ {umbrellaBadge.label}
+                </div>
+                
+                <button
+                  onClick={handleSaveCity}
+                  className={`px-3 py-1 rounded-full border text-[11px] font-semibold tracking-wider uppercase backdrop-blur-xl shadow-md transition-all active:scale-95 ${
+                    savedCities.some(c => c.id === selectedCity.id || (Math.abs(c.latitude - selectedCity.latitude) < 0.01 && Math.abs(c.longitude - selectedCity.longitude) < 0.01))
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                      : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  {savedCities.some(c => c.id === selectedCity.id || (Math.abs(c.latitude - selectedCity.latitude) < 0.01 && Math.abs(c.longitude - selectedCity.longitude) < 0.01))
+                    ? '✓ Saved'
+                    : '+ Add City'}
+                </button>
               </div>
             </section>
           )
@@ -700,6 +715,97 @@ export default function Home() {
                   </p>
                 </div>
               </section>
+
+              {/* SAVED CITIES SECTION */}
+              {savedCities.length > 0 && (
+                <section className="mt-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/40 tracking-wider uppercase border-b border-white/5 pb-2 mb-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3.5 h-3.5 text-white/40">
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
+                    Saved Locations
+                  </div>
+                  
+                  <div className="flex flex-col gap-3">
+                    {savedCities.map((city) => {
+                      const weather = savedCitiesWeather[city.id];
+                      const isCurrentSelected = selectedCity.id === city.id || (Math.abs(selectedCity.latitude - city.latitude) < 0.01 && Math.abs(selectedCity.longitude - city.longitude) < 0.01);
+                      
+                      // Dynamic background for card based on weather condition
+                      const cardBgGradient = weather 
+                        ? getGradientClasses(weather.code, weather.time, true)
+                        : 'bg-slate-900/25 border-white/5';
+                      
+                      return (
+                        <div
+                          key={`${city.id}-${city.latitude}`}
+                          onClick={() => {
+                            setSelectedCity(city);
+                            // Scroll to top
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className={`group relative overflow-hidden rounded-2xl border p-4 shadow-md backdrop-blur-md cursor-pointer hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-between gap-4 ${cardBgGradient} ${
+                            isCurrentSelected ? 'ring-1 ring-white/30' : ''
+                          }`}
+                        >
+                          {/* Inner card glow decoration */}
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-xl pointer-events-none" />
+
+                          {/* Left: City details & Byline */}
+                          <div className="flex flex-col gap-0.5 z-10 flex-1 min-w-0">
+                            <span className="text-xs font-semibold text-white/50 tracking-wider uppercase">
+                              {city.admin1 || city.country}
+                            </span>
+                            <h4 className="text-lg font-bold text-white tracking-tight truncate">
+                              {city.name}
+                            </h4>
+                            {weather && (
+                              <p className="text-[10px] text-white/70 italic mt-1 line-clamp-1">
+                                {weather.byline}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Right: Weather icon, Temp, delete button */}
+                          <div className="flex items-center gap-4 z-10">
+                            {weather ? (
+                              <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-end">
+                                  <span className="text-2xl font-extrabold text-white">
+                                    {Math.round(weather.temp)}°
+                                  </span>
+                                  <span className="text-[9px] text-white/50 font-medium">
+                                    H:{Math.round(weather.high)}° L:{Math.round(weather.low)}°
+                                  </span>
+                                </div>
+                                <WeatherIcon name={weather.iconName} className="w-8 h-8 flex-shrink-0" />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-6 bg-white/5 rounded animate-pulse" />
+                            )}
+
+                            {/* Remove button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const filtered = savedCities.filter(c => c.id !== city.id);
+                                updateSavedCities(filtered);
+                              }}
+                              className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 text-white/40 hover:text-rose-400 transition-colors shadow-inner"
+                              title="Remove location"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
 
             </div>
           )
