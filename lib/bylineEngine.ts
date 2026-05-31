@@ -15,7 +15,7 @@ interface BylineSet {
   roast: string;
 }
 
-const bylines = {
+const bylines: Record<string, BylineSet> = {
   highRain: {
     light: 'Rain is highly likely. Make sure to bring an umbrella.',
     default: "It's pouring. Your hair is in immediate danger. Bring an umbrella.",
