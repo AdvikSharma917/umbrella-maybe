@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "prompt-optimizer@daymade-skills": true,
+    "qa-expert@daymade-skills": true,
+    "ui-designer@daymade-skills": true,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true
+  }
+}
