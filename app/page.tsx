@@ -9,14 +9,14 @@ import { getByline } from '@/lib/bylineEngine';
 import WeatherIcon from '@/components/WeatherIcon';
 
 const DEFAULT_CITY: City = {
-  id: 2643743,
-  name: 'London',
-  latitude: 51.5074,
-  longitude: -0.1278,
-  country: 'United Kingdom',
-  country_code: 'GB',
-  admin1: 'England',
-  timezone: 'Europe/London'
+  id: 6167865,
+  name: 'Toronto',
+  latitude: 43.6532,
+  longitude: -79.3832,
+  country: 'Canada',
+  country_code: 'CA',
+  admin1: 'Ontario',
+  timezone: 'America/Toronto'
 };
 
 const LOCAL_STORAGE_KEY = 'umbrella_maybe_saved_cities';
