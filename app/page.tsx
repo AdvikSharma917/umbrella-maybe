@@ -682,12 +682,12 @@ export default function Home() {
     const getUmbrellaStyles = (status: 'yes' | 'maybe' | 'no') => {
       switch (status) {
         case 'yes':
-          return { text: 'text-rose-400', border: 'border-rose-500/30 bg-rose-950/30 backdrop-blur-md', label: 'Umbrella Needed' };
+          return { text: 'text-rose-400', border: 'border-rose-500/30 bg-rose-950/30 backdrop-blur-md', cardBorder: 'border-rose-500/25', label: 'Umbrella Needed' };
         case 'maybe':
-          return { text: 'text-amber-400', border: 'border-amber-500/30 bg-amber-950/30 backdrop-blur-md', label: 'Umbrella Maybe' };
+          return { text: 'text-amber-400', border: 'border-amber-500/30 bg-amber-950/30 backdrop-blur-md', cardBorder: 'border-amber-500/25', label: 'Umbrella Maybe' };
         case 'no':
         default:
-          return { text: 'text-emerald-400', border: 'border-emerald-500/30 bg-emerald-950/30 backdrop-blur-md', label: 'No Umbrella Needed' };
+          return { text: 'text-emerald-400', border: 'border-emerald-500/30 bg-emerald-950/30 backdrop-blur-md', cardBorder: 'border-emerald-500/20', label: 'No Umbrella Needed' };
       }
     };
     const umbrellaRecommendation = getUmbrellaRecommendation(data);
@@ -763,7 +763,7 @@ export default function Home() {
         </section>
 
         {/* UMBRELLA ADVICE CARD */}
-        <section className="md:col-span-12 bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-5 shadow-lg flex gap-4 items-start hover:border-white/15 transition-colors">
+        <section className={`md:col-span-12 bg-white/5 border ${umbrellaBadge.cardBorder} backdrop-blur-md rounded-3xl p-5 shadow-lg flex gap-4 items-start transition-colors`}>
           <div className={`p-2.5 rounded-2xl bg-white/5 border border-white/10 flex-shrink-0 ${umbrellaBadge.text}`}>
             <WeatherIcon name="umbrella" className="w-5 h-5 fill-current/10" />
           </div>
@@ -771,10 +771,10 @@ export default function Home() {
             <h3 className="text-[10px] font-bold text-white/35 tracking-widest uppercase">Umbrella Verdict</h3>
             <p className="text-base font-semibold text-white mt-1">
               {umbrellaRecommendation.status === 'yes'
-                ? 'Definitely grab an umbrella!'
+                ? 'Bring an umbrella.'
                 : umbrellaRecommendation.status === 'maybe'
-                ? 'Umbrella is recommended (just in case)'
-                : 'No need for an umbrella today.'}
+                ? 'An umbrella wouldn\'t hurt.'
+                : 'No umbrella needed.'}
             </p>
             <p className="text-xs text-white/60 mt-1.5 leading-relaxed font-normal">
               {umbrellaRecommendation.advice}
