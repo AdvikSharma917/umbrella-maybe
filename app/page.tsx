@@ -179,6 +179,9 @@ export default function Home() {
   const isProgrammaticScroll = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestRef = useRef(0);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsModalRef = useRef<HTMLDivElement>(null);
+  const settingsWasOpen = useRef(false);
 
   // Temperature conversion helper
   const convertTemp = useCallback((celsius: number) => {
@@ -251,6 +254,19 @@ export default function Home() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Focus management for settings modal — move focus in on open, return it on close
+  useEffect(() => {
+    if (showSettings) {
+      settingsWasOpen.current = true;
+      const focusable = settingsModalRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.[0]?.focus();
+    } else if (settingsWasOpen.current) {
+      settingsButtonRef.current?.focus();
+    }
+  }, [showSettings]);
+
   // Sync saved cities to localStorage
   const updateSavedCities = (newCities: City[]) => {
     setSavedCities(newCities);
@@ -307,6 +323,28 @@ export default function Home() {
     setWeatherData(null);
     setWeatherError(null);
     setSelectedCity(city);
+  }, []);
+
+  // Tab key focus trap for the settings modal
+  const handleSettingsModalKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab' || !settingsModalRef.current) return;
+    const focusable = settingsModalRef.current.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   }, []);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -656,6 +694,10 @@ export default function Home() {
 
     const hourly = getHourlyForecast(data);
 
+    const weekMin = Math.min(...data.daily.temperature_2m_min);
+    const weekMax = Math.max(...data.daily.temperature_2m_max);
+    const weekRange = weekMax - weekMin;
+
     // Advice strings for details
     const feelsLikeDiff = Math.abs(data.current.temperature_2m - data.current.apparent_temperature);
     const statsAdvice = feelsLikeDiff > 3 
@@ -797,6 +839,8 @@ export default function Home() {
               const minTemp = data.daily.temperature_2m_min[idx];
               const maxTemp = data.daily.temperature_2m_max[idx];
               const popDaily = data.daily.precipitation_probability_max[idx];
+              const barLeft = weekRange > 0 ? ((minTemp - weekMin) / weekRange) * 100 : 10;
+              const barRight = weekRange > 0 ? ((weekMax - maxTemp) / weekRange) * 100 : 10;
               return (
                 <div
                   key={day}
@@ -822,8 +866,8 @@ export default function Home() {
                     
                     <div className="w-20 h-1.5 bg-white/10 rounded-full relative overflow-hidden flex-shrink-0">
                       <div
-                        className="absolute h-full bg-gradient-to-r from-sky-400 via-indigo-400 to-amber-400 rounded-full"
-                        style={{ left: '15%', right: '15%' }}
+                        className="absolute h-full bg-white/40 rounded-full"
+                        style={{ left: `${barLeft.toFixed(1)}%`, right: `${barRight.toFixed(1)}%` }}
                       />
                     </div>
 
@@ -890,7 +934,7 @@ export default function Home() {
   return (
     <div className={`min-h-screen bg-gradient-to-b ${dynamicBgGradient} text-white font-sans transition-all duration-1000 pb-16 selection:bg-white/10`}>
       {/* Search Header Bar (Sticky at Top) */}
-      <header className="sticky top-0 z-50 w-full max-w-xl md:max-w-4xl mx-auto px-4 md:px-0 pt-6 pb-2">
+      <header className="sticky top-0 z-50 w-full max-w-xl md:max-w-4xl mx-auto px-4 md:px-0 pt-6 pb-2 bg-slate-950/85 backdrop-blur-xl border-b border-white/5">
         <div className="flex flex-col gap-4 w-full">
           {/* Logo / Header Branding */}
           <div className="flex items-center justify-between px-1 select-none">
@@ -901,6 +945,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                ref={settingsButtonRef}
                 type="button"
                 onClick={() => setShowSettings(true)}
                 aria-label="Open settings"
@@ -1186,9 +1231,11 @@ export default function Home() {
           aria-labelledby="settings-title"
         >
           {/* Modal Card */}
-          <div 
+          <div
+            ref={settingsModalRef}
             className="w-full max-w-md bg-slate-900/90 border border-white/10 rounded-3xl p-6 shadow-2xl backdrop-blur-2xl transition-all scale-100 flex flex-col gap-6"
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleSettingsModalKeyDown}
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
