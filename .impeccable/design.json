@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-02T00:00:00Z",
+  "title": "Design System: Umbrella Maybe",
+  "extensions": {
+    "colorMeta": {
+      "void": {
+        "role": "neutral",
+        "displayName": "Void",
+        "canonical": "oklch(11% 0.008 242)",
+        "tonalRamp": ["#010409", "#020617", "#050e2a", "#0b1638", "#101d46", "#172554", "#1e2d62", "#2b3e7a"]
+      },
+      "abyss": {
+        "role": "neutral",
+        "displayName": "Abyss",
+        "canonical": "oklch(12% 0.002 250)",
+        "tonalRamp": ["#030304", "#09090b", "#111113", "#18181b", "#27272a", "#3f3f46", "#71717a", "#a1a1aa"]
+      },
+      "deep-surface": {
+        "role": "neutral",
+        "displayName": "Deep Surface",
+        "canonical": "oklch(16% 0.012 245)",
+        "tonalRamp": ["#020617", "#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1"]
+      },
+      "sky-signal": {
+        "role": "primary",
+        "displayName": "Sky Signal",
+        "canonical": "oklch(72% 0.15 223)",
+        "tonalRamp": ["#082f49", "#0c4a6e", "#075985", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc"]
+      },
+      "rain-alarm": {
+        "role": "status-yes",
+        "displayName": "Rain Alarm",
+        "canonical": "oklch(68% 0.18 10)",
+        "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fda4af"]
+      },
+      "hedge-amber": {
+        "role": "status-maybe",
+        "displayName": "Hedge Amber",
+        "canonical": "oklch(83% 0.16 85)",
+        "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d"]
+      },
+      "clear-emerald": {
+        "role": "status-clear",
+        "displayName": "Clear Emerald",
+        "canonical": "oklch(78% 0.16 160)",
+        "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7"]
+      },
+      "storm-violet": {
+        "role": "secondary",
+        "displayName": "Storm Violet",
+        "canonical": "oklch(66% 0.18 264)",
+        "tonalRamp": ["#1e1b4b", "#2e1065", "#312e81", "#4338ca", "#4f46e5", "#6366f1", "#818cf8", "#a5b4fc"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Temperature Display", "purpose": "The temperature number only. Dominates the viewport; everything else defers to it." },
+      "headline": { "displayName": "City Headline", "purpose": "City name in the main weather view. Light, open." },
+      "title": { "displayName": "Card Title", "purpose": "Saved city names; primary label in dense contexts." },
+      "body": { "displayName": "Body", "purpose": "Advice copy, descriptions, search results. Max 65ch." },
+      "label": { "displayName": "Section Label", "purpose": "10px all-caps section headers. Whisper-level — always the quietest text on the page." }
+    },
+    "shadows": [
+      { "name": "card-grounding", "value": "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)", "purpose": "All data cards. Ambient, not dramatic." },
+      { "name": "dropdown-depth", "value": "0 12px 40px rgba(0,0,0,0.5)", "purpose": "Search results dropdown only. Separates it from sticky header." }
+    ],
+    "motion": [
+      { "name": "state-transition", "value": "all 300ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default for card border hover, button scale states." },
+      { "name": "background-shift", "value": "all 1000ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Full-page weather gradient transition when city changes." },
+      { "name": "scale-lift", "value": "transform 300ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Saved city card hover lift (scale 1.01) and active press (scale 0.99)." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px", "purpose": "Main layout shift: single-column to 12-column grid; search bar expands from xl to 4xl." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Status Badge — Umbrella Yes",
+      "kind": "chip",
+      "refersTo": "status-badge-yes",
+      "description": "Umbrella Needed state. Rose tint with backdrop blur.",
+      "html": "<div class=\"ds-badge-yes\">☔ Umbrella Needed</div>",
+      "css": ".ds-badge-yes { display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; border-radius: 9999px; border: 1px solid rgba(244,63,94,0.3); background: rgba(136,19,55,0.3); backdrop-filter: blur(12px); color: #fb7185; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; } .ds-badge-yes:hover { background: rgba(136,19,55,0.4); }"
+    },
+    {
+      "name": "Status Badge — Umbrella Maybe",
+      "kind": "chip",
+      "refersTo": "status-badge-maybe",
+      "description": "Umbrella Maybe state. Amber tint with backdrop blur.",
+      "html": "<div class=\"ds-badge-maybe\">☔ Umbrella Maybe</div>",
+      "css": ".ds-badge-maybe { display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; border-radius: 9999px; border: 1px solid rgba(245,158,11,0.3); background: rgba(120,83,7,0.3); backdrop-filter: blur(12px); color: #fbbf24; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Status Badge — No Umbrella",
+      "kind": "chip",
+      "refersTo": "status-badge-clear",
+      "description": "No Umbrella Needed state. Emerald tint.",
+      "html": "<div class=\"ds-badge-clear\">✓ No Umbrella Needed</div>",
+      "css": ".ds-badge-clear { display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; border-radius: 9999px; border: 1px solid rgba(16,185,129,0.3); background: rgba(6,78,59,0.3); backdrop-filter: blur(12px); color: #34d399; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Data Card",
+      "kind": "card",
+      "refersTo": "data-card",
+      "description": "Universal container for all weather data sections. Uniform shape; content varies, container never does.",
+      "html": "<div class=\"ds-data-card\"><div class=\"ds-card-label\">Section Label</div><p class=\"ds-card-body\">Data content appears here.</p></div>",
+      "css": ".ds-data-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); border-radius: 24px; padding: 20px; backdrop-filter: blur(12px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); transition: border-color 300ms ease; } .ds-data-card:hover { border-color: rgba(255,255,255,0.15); } .ds-card-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 8px; } .ds-card-body { font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.6; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "search-input",
+      "description": "City search field. Frosted glass, rounded-2xl, left-inset icon.",
+      "html": "<div class=\"ds-search-wrap\"><svg class=\"ds-search-icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"/></svg><input class=\"ds-search-input\" type=\"text\" placeholder=\"Search for a city or airport\" /></div>",
+      "css": ".ds-search-wrap { position: relative; } .ds-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.5); pointer-events: none; } .ds-search-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; padding: 10px 16px 10px 42px; font-size: 14px; color: #fff; backdrop-filter: blur(20px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transition: border-color 200ms, background 200ms, box-shadow 200ms; outline: none; box-sizing: border-box; } .ds-search-input::placeholder { color: rgba(255,255,255,0.45); } .ds-search-input:hover { border-color: rgba(255,255,255,0.15); } .ds-search-input:focus { border-color: rgba(255,255,255,0.20); background: rgba(255,255,255,0.08); box-shadow: 0 0 0 1px rgba(255,255,255,0.10); }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "32px square glass button for settings and utility actions.",
+      "html": "<button class=\"ds-icon-btn\" aria-label=\"Settings\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\"><circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9\"/></svg></button>",
+      "css": ".ds-icon-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); color: rgba(255,255,255,0.7); cursor: pointer; transition: background 200ms, border-color 200ms, color 200ms, transform 100ms; } .ds-icon-btn:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.15); color: #fff; } .ds-icon-btn:active { transform: scale(0.95); }"
+    },
+    {
+      "name": "Add City Button",
+      "kind": "button",
+      "refersTo": "status-badge-clear",
+      "description": "Ghost pill to save/unsave a city. Transitions from ghost to emerald on save.",
+      "html": "<button class=\"ds-add-city\">+ Add City</button>",
+      "css": ".ds-add-city { display: inline-flex; align-items: center; padding: 4px 14px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); color: rgba(255,255,255,0.80); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: all 300ms ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); } .ds-add-city:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.20); color: #fff; transform: scale(1.05); } .ds-add-city:active { transform: scale(0.95); } .ds-add-city.saved { background: rgba(52,211,153,0.25); color: #34d399; border-color: rgba(52,211,153,0.40); } .ds-add-city.saved:hover { background: rgba(52,211,153,0.35); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Deadpan Forecaster",
+    "overview": "This design system is built around a single tension: a serious, meticulous instrument that occasionally says something funny. The interface never winks. Every surface, spacing choice, and type decision is pulled toward quiet premium precision. The humor exists only in the copy.\n\nThe visual grammar is deep-dark glassmorphic: near-black backgrounds at slate-950/zinc-950, surfaces rendered as frosted overlays, and a single brand accent in sky blue that carries double meaning as both the brand wordmark color and the precipitation data signal. Weather states bleed through in subtle background gradient shifts so the UI communicates condition without a single label.\n\nType is the other instrument. The temperature number runs extralight at 9rem — all negative space and quiet confidence. Section labels are 10px all-caps with wide tracking: they whisper so the data can speak.",
+    "keyCharacteristics": [
+      "Dark-native. Light mode is not a consideration.",
+      "Weather-reactive backgrounds telegraph condition before the user reads anything.",
+      "Glassmorphic restraint. No pane is purely decorative.",
+      "Single accent. Sky blue is the only brand color.",
+      "Uniform card radius. All data containers use rounded-3xl (24px).",
+      "The temperature number is massive; everything else steps back."
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Sky blue is the only brand accent. Status colors (rose, amber, emerald) are data; they communicate umbrella state, nothing else. Never use them decoratively.", "section": "colors" },
+      { "name": "The Glass-Not-Fill Rule", "body": "Data card backgrounds are rgba(white, 0.05) with backdrop-blur. Never use a solid opaque background on a card. Transparency is load-bearing.", "section": "colors" },
+      { "name": "The Two-Layer Rule", "body": "There are exactly two elevation levels: the page ground and the glass surface. No cards-inside-cards.", "section": "elevation" },
+      { "name": "The Flatness-At-Rest Rule", "body": "Surfaces are flat at rest. Motion is feedback, not decoration.", "section": "elevation" },
+      { "name": "The Extralight Display Rule", "body": "The temperature number is the only element permitted at weight 100. Everything else starts at 300 minimum.", "section": "typography" },
+      { "name": "The Label Silence Rule", "body": "Section labels at 10px all-caps and white/35 opacity exist to identify, not to compete. They should always be the quietest text on the page.", "section": "typography" }
+    ],
+    "dos": [
+      "Do use rounded-3xl (24px) for all primary data card containers.",
+      "Do keep the temperature number at weight 100 (extralight) exclusively.",
+      "Do let the weather-reactive gradient bleed through frosted card surfaces.",
+      "Do use white/35 and all-caps 10px labels for section headers.",
+      "Do reserve sky blue exclusively for the brand wordmark and precipitation percentage.",
+      "Do use status colors (rose/amber/emerald) only for umbrella verdict contexts.",
+      "Do respect prefers-reduced-motion: transitions degrade to instant or opacity-only.",
+      "Do confirm all body text hits 4.5:1 contrast against Void."
+    ],
+    "donts": [
+      "Don't use a warm or cream-tinted background. This system is cold-dark.",
+      "Don't use gradient text (background-clip: text). Sky blue is solid.",
+      "Don't use border-left as a colored stripe accent on cards.",
+      "Don't use nested cards. A card is a terminal surface.",
+      "Don't use blue sky imagery, sun gradients, or cheerful light palettes (AccuWeather reference).",
+      "Don't apply the label eyebrow pattern to every section reflexively.",
+      "Don't add SaaS energy: metrics cards, gradient CTAs, 'built for teams' copy.",
+      "Don't animate layout properties. Only transform, opacity, border-color, background-color.",
+      "Don't use glassmorphism decoratively — every backdrop-blur exposes the weather gradient beneath."
+    ]
+  }
+}
