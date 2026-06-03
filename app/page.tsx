@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { City, WeatherData } from '@/lib/api';
 import { fetchWeather, isValidCity, searchCities } from '@/lib/api';
 import { getWeatherCondition } from '@/lib/weatherCodes';
+import type { HumorMode } from '@/lib/bylineEngine';
 import { getByline } from '@/lib/bylineEngine';
 import WeatherIcon from '@/components/WeatherIcon';
 
@@ -167,6 +168,11 @@ export default function Home() {
   const [savedCities, setSavedCities] = useState<City[]>([]);
   const [savedCitiesWeather, setSavedCitiesWeather] = useState<Record<number, WeatherData>>({});
 
+  // Settings States
+  const [tempUnit, setTempUnit] = useState<'celsius' | 'fahrenheit'>('celsius');
+  const [humorMode, setHumorMode] = useState<HumorMode>('default');
+  const [showSettings, setShowSettings] = useState(false);
+
   const [activeIndex, setActiveIndex] = useState(0);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -174,11 +180,57 @@ export default function Home() {
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRequestRef = useRef(0);
 
-  // Hydration safety
+  // Temperature conversion helper
+  const convertTemp = useCallback((celsius: number) => {
+    if (tempUnit === 'fahrenheit') {
+      return (celsius * 9) / 5 + 32;
+    }
+    return celsius;
+  }, [tempUnit]);
+
+  // Update Settings Helpers
+  const updateTempUnit = (unit: 'celsius' | 'fahrenheit') => {
+    setTempUnit(unit);
+    try {
+      localStorage.setItem('umbrella_maybe_temp_unit', unit);
+    } catch (e) {
+      console.error('Failed to save temperature unit to localStorage:', e);
+    }
+  };
+
+  const updateHumorMode = (mode: HumorMode) => {
+    setHumorMode(mode);
+    try {
+      localStorage.setItem('umbrella_maybe_humor_mode', mode);
+    } catch (e) {
+      console.error('Failed to save humor mode to localStorage:', e);
+    }
+  };
+
+  // Hydration safety and settings loading
   useEffect(() => {
     const timer = setTimeout(() => {
       setMounted(true);
       setSavedCities(loadSavedCities());
+
+      // Load settings from localStorage
+      try {
+        const savedUnit = localStorage.getItem('umbrella_maybe_temp_unit');
+        if (savedUnit === 'celsius' || savedUnit === 'fahrenheit') {
+          setTempUnit(savedUnit);
+        }
+        const savedHumor = localStorage.getItem('umbrella_maybe_humor_mode');
+        if (
+          savedHumor === 'light' ||
+          savedHumor === 'default' ||
+          savedHumor === 'high' ||
+          savedHumor === 'roast'
+        ) {
+          setHumorMode(savedHumor);
+        }
+      } catch (e) {
+        console.error('Failed to load settings from localStorage:', e);
+      }
     }, 0);
     return () => {
       clearTimeout(timer);
@@ -186,6 +238,17 @@ export default function Home() {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Escape key to close settings
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowSettings(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Sync saved cities to localStorage
@@ -572,7 +635,7 @@ export default function Home() {
       feelsLike: data.current.apparent_temperature,
       pop: pop,
       windSpeed: data.current.wind_speed_10m
-    }, 'default');
+    }, humorMode);
 
     const isSaved = savedCities.some((savedCity) => isSameCity(savedCity, city));
 
@@ -615,7 +678,7 @@ export default function Home() {
           
           <div className="relative flex justify-center items-start mt-2">
             <span className="text-8xl md:text-9xl font-extralight tracking-tighter text-white leading-none">
-              {Math.round(data.current.temperature_2m)}
+              {Math.round(convertTemp(data.current.temperature_2m))}
             </span>
             <span className="text-4xl font-light text-white/70 ml-1 mt-1">°</span>
           </div>
@@ -631,8 +694,8 @@ export default function Home() {
           )}
           
           <div className="flex items-center gap-3 text-sm font-semibold text-white/75 mt-2">
-            <span>H:{Math.round(data.daily.temperature_2m_max[0])}°</span>
-            <span>L:{Math.round(data.daily.temperature_2m_min[0])}°</span>
+            <span>H:{Math.round(convertTemp(data.daily.temperature_2m_max[0]))}°</span>
+            <span>L:{Math.round(convertTemp(data.daily.temperature_2m_min[0]))}°</span>
           </div>
 
           {/* Sub-header actions */}
@@ -708,7 +771,7 @@ export default function Home() {
                   </div>
 
                   <span className="text-sm font-semibold text-white mt-1">
-                    {Math.round(h.temp)}°
+                    {Math.round(convertTemp(h.temp))}°
                   </span>
                 </div>
               );
@@ -754,7 +817,7 @@ export default function Home() {
 
                   <div className="flex items-center gap-2.5 text-xs font-semibold w-36 justify-end">
                     <span className="text-white/40 text-sm font-semibold w-8 text-right">
-                      {Math.round(minTemp)}°
+                      {Math.round(convertTemp(minTemp))}°
                     </span>
                     
                     <div className="w-20 h-1.5 bg-white/10 rounded-full relative overflow-hidden flex-shrink-0">
@@ -765,7 +828,7 @@ export default function Home() {
                     </div>
 
                     <span className="text-white text-sm font-semibold w-8 text-right">
-                      {Math.round(maxTemp)}°
+                      {Math.round(convertTemp(maxTemp))}°
                     </span>
                   </div>
                 </div>
@@ -784,7 +847,7 @@ export default function Home() {
             </div>
             <div className="my-1">
               <span className="text-2xl font-semibold text-white tracking-tight">
-                {Math.round(data.current.apparent_temperature)}°
+                {Math.round(convertTemp(data.current.apparent_temperature))}°
               </span>
             </div>
             <p className="text-[10px] text-white/50 leading-relaxed font-normal">{statsAdvice}</p>
@@ -836,9 +899,22 @@ export default function Home() {
                 Umbrella <span className="font-semibold text-sky-400">Maybe</span>
               </span>
             </div>
-            <span className="text-[10px] font-bold text-white/35 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              v1.0
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                aria-label="Open settings"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/15 transition-all text-white/70 hover:text-white cursor-pointer active:scale-95 animate-fade-in"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-4.5 h-4.5">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              </button>
+              <span className="text-[10px] font-bold text-white/35 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase tracking-wider select-none">
+                v1.0
+              </span>
+            </div>
           </div>
 
           <div ref={searchContainerRef} className="relative w-full">
@@ -1023,7 +1099,7 @@ export default function Home() {
                   feelsLike: weather.current.apparent_temperature,
                   pop: pop,
                   windSpeed: weather.current.wind_speed_10m
-                }, 'default') : '';
+                }, humorMode) : '';
 
                 return (
                   <div
@@ -1061,10 +1137,10 @@ export default function Home() {
                           <>
                             <span className="flex flex-col items-end">
                               <span className="text-3xl font-extrabold text-white tracking-tighter">
-                                {Math.round(weather.current.temperature_2m)}°
+                                {Math.round(convertTemp(weather.current.temperature_2m))}°
                               </span>
                               <span className="text-[10px] text-white/50 font-semibold mt-0.5">
-                                H:{Math.round(weather.daily.temperature_2m_max[0])}° L:{Math.round(weather.daily.temperature_2m_min[0])}°
+                                H:{Math.round(convertTemp(weather.daily.temperature_2m_max[0]))}° L:{Math.round(convertTemp(weather.daily.temperature_2m_min[0]))}°
                               </span>
                             </span>
                             <WeatherIcon name={condition?.iconName || 'partly-cloudy'} className="w-9 h-9 flex-shrink-0" />
@@ -1099,6 +1175,111 @@ export default function Home() {
           </section>
         )}
       </main>
+
+      {/* Settings Modal Overlay */}
+      {showSettings && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-opacity duration-300 animate-fade-in"
+          onClick={() => setShowSettings(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+        >
+          {/* Modal Card */}
+          <div 
+            className="w-full max-w-md bg-slate-900/90 border border-white/10 rounded-3xl p-6 shadow-2xl backdrop-blur-2xl transition-all scale-100 flex flex-col gap-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h2 id="settings-title" className="text-lg font-semibold text-white tracking-wide">Settings</h2>
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                aria-label="Close settings"
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/15 transition-all text-white/70 hover:text-white cursor-pointer active:scale-95"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Temperature Unit selection */}
+            <div className="flex flex-col gap-2.5">
+              <h3 className="text-xs font-bold text-white/35 tracking-widest uppercase">Temperature Unit</h3>
+              <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-2xl border border-white/5">
+                <button
+                  type="button"
+                  onClick={() => updateTempUnit('celsius')}
+                  className={`py-2 px-4 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                    tempUnit === 'celsius'
+                      ? 'bg-white/10 text-white shadow'
+                      : 'text-white/50 hover:text-white'
+                  }`}
+                >
+                  Celsius (°C)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateTempUnit('fahrenheit')}
+                  className={`py-2 px-4 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                    tempUnit === 'fahrenheit'
+                      ? 'bg-white/10 text-white shadow'
+                      : 'text-white/50 hover:text-white'
+                  }`}
+                >
+                  Fahrenheit (°F)
+                </button>
+              </div>
+            </div>
+
+            {/* Humor Mode selection */}
+            <div className="flex flex-col gap-2.5">
+              <h3 className="text-xs font-bold text-white/35 tracking-widest uppercase">Humor Tone Mode</h3>
+              <div className="flex flex-col gap-2">
+                {[
+                  {
+                    id: 'light',
+                    label: 'Light',
+                    desc: 'Polite, friendly, and soft suggestions.'
+                  },
+                  {
+                    id: 'default',
+                    label: 'Default',
+                    desc: 'Sarcastic, conversational, and direct.'
+                  },
+                  {
+                    id: 'high',
+                    label: 'High',
+                    desc: 'Dramatic, hyper-expressive, skies plotting violence.'
+                  },
+                  {
+                    id: 'roast',
+                    label: 'Roast',
+                    desc: 'Pure mockery, questioning your life choices.'
+                  }
+                ].map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => updateHumorMode(mode.id as HumorMode)}
+                    className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col gap-0.5 ${
+                      humorMode === mode.id
+                        ? 'bg-white/10 border-white/20 text-white'
+                        : 'bg-white/5 border-white/5 hover:bg-white/8 hover:border-white/10 text-white/70'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">{mode.label}</span>
+                    <span className="text-xs text-white/40 font-normal leading-normal">{mode.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
