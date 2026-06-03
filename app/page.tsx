@@ -672,7 +672,8 @@ export default function Home() {
       temp: data.current.temperature_2m,
       feelsLike: data.current.apparent_temperature,
       pop: pop,
-      windSpeed: data.current.wind_speed_10m
+      windSpeed: data.current.wind_speed_10m,
+      hour: parseInt(data.current.time.split('T')[1]?.split(':')[0] ?? '12', 10)
     }, humorMode);
 
     const isSaved = savedCities.some((savedCity) => isSameCity(savedCity, city));
@@ -1143,7 +1144,8 @@ export default function Home() {
                   temp: weather.current.temperature_2m,
                   feelsLike: weather.current.apparent_temperature,
                   pop: pop,
-                  windSpeed: weather.current.wind_speed_10m
+                  windSpeed: weather.current.wind_speed_10m,
+                  hour: parseInt(weather.current.time.split('T')[1]?.split(':')[0] ?? '12', 10)
                 }, humorMode) : '';
 
                 return (
